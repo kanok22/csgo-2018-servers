@@ -67,9 +67,19 @@ async function getLiveServerList() {
       const data = await res.json();
       let rawList = [];
       if (Array.isArray(data)) {
-        rawList = data.map(item => (typeof item === 'string' ? item : item.address));
+        rawList = data.map(item => {
+          if (typeof item === 'string') {
+            return { address: item.trim(), customName: null };
+          }
+          if (item && typeof item === 'object') {
+            const addr = String(item.address || item.ip || '').trim();
+            const customName = item.name ? String(item.name).trim() : null;
+            return { address: addr, customName };
+          }
+          return null;
+        }).filter(Boolean);
       }
-      const sanitized = rawList.map(s => String(s || '').trim()).filter(isSafePublicServer);
+      const sanitized = rawList.filter(item => isSafePublicServer(item.address));
       if (sanitized.length > 0) {
         cachedServerList = sanitized.slice(0, 35);
         lastFetchTimestamp = now;
@@ -80,13 +90,16 @@ async function getLiveServerList() {
     // fallback gracefully to cached or default list on network errors
   }
 
-  return cachedServerList || DEFAULT_SERVERS;
+  return cachedServerList || DEFAULT_SERVERS.map(addr => ({ address: addr, customName: null }));
 }
 
-function queryServer(addr, timeout = 1200) {
+function queryServer(target, timeout = 1200) {
+  const addr = typeof target === 'string' ? target : target.address;
+  const customName = (typeof target === 'object' && target.customName) ? target.customName : null;
+
   return new Promise((resolve) => {
     if (!isSafePublicServer(addr)) {
-      return resolve({ address: addr, online: false });
+      return resolve({ address: addr, name: customName || 'CS:GO Server', online: false });
     }
 
     const parts = addr.split(':');
@@ -117,12 +130,12 @@ function queryServer(addr, timeout = 1200) {
     try {
       client = dgram.createSocket('udp4');
     } catch (e) {
-      return resolve({ address: addr, online: false });
+      return resolve({ address: addr, name: customName || 'CS:GO Server', online: false });
     }
 
     client.on('error', () => {
       cleanup();
-      resolve({ address: addr, online: false });
+      resolve({ address: addr, name: customName || 'CS:GO Server', online: false });
     });
 
     const req = Buffer.concat([
@@ -132,7 +145,7 @@ function queryServer(addr, timeout = 1200) {
 
     timer = setTimeout(() => {
       cleanup();
-      resolve({ address: addr, online: false });
+      resolve({ address: addr, name: customName || 'CS:GO Server', online: false });
     }, timeout);
 
     client.on('message', (msg) => {
@@ -144,7 +157,7 @@ function queryServer(addr, timeout = 1200) {
             client.send(Buffer.concat([req, challenge]), port, ip);
           } catch (e) {
             cleanup();
-            resolve({ address: addr, online: false });
+            resolve({ address: addr, name: customName || 'CS:GO Server', online: false });
           }
         }
         return;
@@ -167,7 +180,7 @@ function queryServer(addr, timeout = 1200) {
         };
 
         try {
-          const name = readCString();
+          const liveName = readCString();
           const map = readCString();
           readCString(); // folder
           readCString(); // game
@@ -179,7 +192,7 @@ function queryServer(addr, timeout = 1200) {
           cleanup();
           resolve({
             address: addr,
-            name: name || 'CS:GO Server',
+            name: customName || liveName || 'CS:GO Server',
             map: map || 'unknown',
             players,
             maxPlayers,
@@ -188,7 +201,7 @@ function queryServer(addr, timeout = 1200) {
           });
         } catch (e) {
           cleanup();
-          resolve({ address: addr, online: false });
+          resolve({ address: addr, name: customName || 'CS:GO Server', online: false });
         }
       }
     });
@@ -197,12 +210,12 @@ function queryServer(addr, timeout = 1200) {
       client.send(req, port, ip, (err) => {
         if (err) {
           cleanup();
-          resolve({ address: addr, online: false });
+          resolve({ address: addr, name: customName || 'CS:GO Server', online: false });
         }
       });
     } catch (e) {
       cleanup();
-      resolve({ address: addr, online: false });
+      resolve({ address: addr, name: customName || 'CS:GO Server', online: false });
     }
   });
 }
@@ -220,7 +233,7 @@ export default async function handler(req, res) {
 
   try {
     const serverList = await getLiveServerList();
-    const results = await Promise.all(serverList.map((addr) => queryServer(addr)));
+    const results = await Promise.all(serverList.map((target) => queryServer(target)));
     return res.status(200).json({
       timestamp: Date.now(),
       servers: results

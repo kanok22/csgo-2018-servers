@@ -31,13 +31,15 @@ DEFAULT_SERVERS = [
 ]
 
 
-def check_endpoint(endpoint: tuple[str, int]) -> dict:
-    addr = f"{endpoint[0]}:{endpoint[1]}"
-    res = query_info(endpoint, timeout=1.2)
+def check_endpoint(endpoint: tuple) -> dict:
+    ip, port = endpoint[0], endpoint[1]
+    custom_name = endpoint[2] if len(endpoint) > 2 else None
+    addr = f"{ip}:{port}"
+    res = query_info((ip, port), timeout=1.2)
     if res:
         return {
             "address": addr,
-            "name": res.name,
+            "name": custom_name or res.name,
             "map": res.map,
             "players": res.players,
             "maxPlayers": res.max_players,
@@ -46,24 +48,32 @@ def check_endpoint(endpoint: tuple[str, int]) -> dict:
         }
     return {
         "address": addr,
+        "name": custom_name or "CS:GO Server",
         "online": False,
     }
 
 
-def get_servers() -> list[tuple[str, int]]:
+def get_servers() -> list[tuple]:
     try:
         with open("servers.json", "r", encoding="utf-8") as f:
             data = json.load(f)
             endpoints = []
             for item in data:
-                addr = item if isinstance(item, str) else item.get("address", "")
+                if isinstance(item, str):
+                    addr = item
+                    cname = None
+                elif isinstance(item, dict):
+                    addr = item.get("address") or item.get("ip") or ""
+                    cname = item.get("name")
+                else:
+                    continue
                 parts = addr.split(":")
-                endpoints.append((parts[0].strip(), int(parts[1].strip())))
+                endpoints.append((parts[0].strip(), int(parts[1].strip()), cname))
             if endpoints:
                 return endpoints
     except Exception:
         pass
-    return DEFAULT_SERVERS
+    return [(ip, port, None) for (ip, port) in DEFAULT_SERVERS]
 
 
 class ServerHandler(http.server.SimpleHTTPRequestHandler):

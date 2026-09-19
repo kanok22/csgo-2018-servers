@@ -1,15 +1,54 @@
 ﻿[
-  "45.95.38.30:27015",
-  "109.176.229.7:27015",
-  "207.244.199.247:26016",
-  "57.128.191.216:27015",
-  "76.13.41.68:27015",
-  "84.154.110.59:27017",
-  "169.58.233.245:27015",
-  "45.138.50.237:27015",
-  "57.128.178.188:27015",
-  "147.135.70.115:27016",
-  "147.135.70.115:27015",
-  "15.204.114.175:27015",
-  "23.161.168.11:27015"
+  {
+    "address": "45.95.38.30:27015",
+    "name": "Hack vs. Hack 24/7 - csgo2018/OnlyHS - West Europe"
+  },
+  {
+    "address": "109.176.229.7:27015",
+    "name": "old.alyx.ro - uk"
+  },
+  {
+    "address": "207.244.199.247:26016",
+    "name": "[!] ★ Femboys Supremacy | $16k | Map Cycle"
+  },
+  {
+    "address": "57.128.191.216:27015",
+    "name": "jksn's testing grounds"
+  },
+  {
+    "address": "76.13.41.68:27015",
+    "name": "2018 private hvh server"
+  },
+  {
+    "address": "84.154.110.59:27017",
+    "name": "FullPlay HvH"
+  },
+  {
+    "address": "169.58.233.245:27015",
+    "name": "2018 Community HvH"
+  },
+  {
+    "address": "45.138.50.237:27015",
+    "name": "Skeetless Classic (2018) [PRIVATE TEST]"
+  },
+  {
+    "address": "57.128.178.188:27015",
+    "name": "Get5: Team_A vs Team_B"
+  },
+  {
+    "address": "147.135.70.115:27016",
+    "name": "GameTime - HS Only NoSpread [2018 CSGO]"
+  },
+  {
+    "address": "147.135.70.115:27015",
+    "name": "GameTime - MM HvH [2018 CSGO]"
+  },
+  {
+    "address": "15.204.114.175:27015",
+    "name": "[NA WEST] Dynasty | 2018 MM HVH"
+  },
+  {
+    "address": "23.161.168.11:27015",
+    "name": "Dicks 2018 (hello hvh.wtf/gg users)"
+  }
 ]
