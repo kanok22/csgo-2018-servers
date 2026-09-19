@@ -1,6 +1,9 @@
 // Vercel serverless function to check live players on CS:GO servers via UDP A2S_INFO
 import dgram from 'dgram';
 
+// Live GitHub Gist URL editable from anywhere without redeploying
+const GIST_SERVERS_URL = 'https://gist.githubusercontent.com/kanok22/ba7c6e99ef241f958e12306128246e1b/raw/servers.json';
+
 const DEFAULT_SERVERS = [
   '45.95.38.30:27015',
   '109.176.229.7:27015',
@@ -17,21 +20,78 @@ const DEFAULT_SERVERS = [
   '23.161.168.11:27015'
 ];
 
-const ALLOWED_SERVERS = new Set(DEFAULT_SERVERS);
+let cachedServerList = DEFAULT_SERVERS;
+let lastFetchTimestamp = 0;
+const CACHE_TTL_MS = 25000; // re-fetch remote list at most every 25 seconds
+
+const IP_PORT_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):([0-9]{1,5})$/;
+
+function isSafePublicServer(addr) {
+  if (typeof addr !== 'string') return false;
+  const match = addr.trim().match(IP_PORT_REGEX);
+  if (!match) return false;
+  const port = parseInt(match[1], 10);
+  if (port < 1024 || port > 65535) return false;
+
+  const ip = addr.split(':')[0];
+  const parts = ip.split('.').map(Number);
+
+  // Block private, loopback, link-local, multicast, and broadcast IPs
+  if (parts[0] === 127 || parts[0] === 10 || parts[0] === 0) return false;
+  if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return false;
+  if (parts[0] === 192 && parts[1] === 168) return false;
+  if (parts[0] === 169 && parts[1] === 254) return false;
+  if (parts[0] >= 224) return false;
+
+  return true;
+}
+
+async function getLiveServerList() {
+  const now = Date.now();
+  if (cachedServerList && (now - lastFetchTimestamp < CACHE_TTL_MS)) {
+    return cachedServerList;
+  }
+
+  const sourceUrl = process.env.SERVERS_URL || GIST_SERVERS_URL;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
+
+    const res = await fetch(sourceUrl, {
+      signal: controller.signal,
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+    clearTimeout(timeout);
+
+    if (res.ok) {
+      const data = await res.json();
+      let rawList = [];
+      if (Array.isArray(data)) {
+        rawList = data.map(item => (typeof item === 'string' ? item : item.address));
+      }
+      const sanitized = rawList.map(s => String(s || '').trim()).filter(isSafePublicServer);
+      if (sanitized.length > 0) {
+        cachedServerList = sanitized.slice(0, 35);
+        lastFetchTimestamp = now;
+        return cachedServerList;
+      }
+    }
+  } catch (e) {
+    // fallback gracefully to cached or default list on network errors
+  }
+
+  return cachedServerList || DEFAULT_SERVERS;
+}
 
 function queryServer(addr, timeout = 1200) {
   return new Promise((resolve) => {
-    // Strict allowlist check (eliminates SSRF)
-    if (!ALLOWED_SERVERS.has(addr)) {
+    if (!isSafePublicServer(addr)) {
       return resolve({ address: addr, online: false });
     }
 
     const parts = addr.split(':');
     const ip = parts[0];
     const port = parseInt(parts[1], 10);
-    if (isNaN(port) || port < 1024 || port > 65535) {
-      return resolve({ address: addr, online: false });
-    }
 
     let client = null;
     let timer = null;
@@ -60,7 +120,6 @@ function queryServer(addr, timeout = 1200) {
       return resolve({ address: addr, online: false });
     }
 
-    // Handle socket errors to prevent unhandled process crashes
     client.on('error', () => {
       cleanup();
       resolve({ address: addr, online: false });
@@ -159,17 +218,8 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Strictly enforce that only allowed servers can be queried (eliminates SSRF & DoS amplification)
-  let serverList = DEFAULT_SERVERS;
-  if (req.query && typeof req.query.servers === 'string') {
-    const requested = req.query.servers.split(',').map(s => s.trim()).filter(Boolean);
-    const filtered = requested.filter(s => ALLOWED_SERVERS.has(s));
-    if (filtered.length > 0) {
-      serverList = filtered.slice(0, 15);
-    }
-  }
-
   try {
+    const serverList = await getLiveServerList();
     const results = await Promise.all(serverList.map((addr) => queryServer(addr)));
     return res.status(200).json({
       timestamp: Date.now(),

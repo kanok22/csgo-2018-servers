@@ -180,23 +180,20 @@
 
       const data = await res.json();
       if (data && Array.isArray(data.servers)) {
-        const liveMap = new Map();
-        data.servers.forEach(s => liveMap.set(s.address, s));
+        const existingMap = new Map();
+        servers.forEach(s => existingMap.set(s.address, s));
 
-        servers = servers.map(server => {
-          const live = liveMap.get(server.address);
-          if (live) {
-            return {
-              ...server,
-              name: live.name || server.name,
-              map: live.map || server.map,
-              players: live.players || 0,
-              maxPlayers: live.maxPlayers || server.maxPlayers,
-              ping: live.ping || server.ping,
-              online: live.online !== false
-            };
-          }
-          return server;
+        servers = data.servers.map(live => {
+          const prev = existingMap.get(live.address) || {};
+          return {
+            address: live.address,
+            name: live.name || prev.name || 'cs:go server',
+            map: live.map || prev.map || 'unknown',
+            players: live.players || 0,
+            maxPlayers: live.maxPlayers || prev.maxPlayers || 30,
+            ping: live.ping || prev.ping || 0,
+            online: live.online !== false
+          };
         });
 
         // sort: servers with active players first, then online status, then address

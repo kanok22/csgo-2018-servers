@@ -50,6 +50,22 @@ def check_endpoint(endpoint: tuple[str, int]) -> dict:
     }
 
 
+def get_servers() -> list[tuple[str, int]]:
+    try:
+        with open("servers.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            endpoints = []
+            for item in data:
+                addr = item if isinstance(item, str) else item.get("address", "")
+                parts = addr.split(":")
+                endpoints.append((parts[0].strip(), int(parts[1].strip())))
+            if endpoints:
+                return endpoints
+    except Exception:
+        pass
+    return DEFAULT_SERVERS
+
+
 class ServerHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header("X-Content-Type-Options", "nosniff")
@@ -61,8 +77,9 @@ class ServerHandler(http.server.SimpleHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/api/servers":
             try:
-                with ThreadPoolExecutor(max_workers=14) as pool:
-                    results = list(pool.map(check_endpoint, DEFAULT_SERVERS))
+                server_list = get_servers()
+                with ThreadPoolExecutor(max_workers=len(server_list) or 1) as pool:
+                    results = list(pool.map(check_endpoint, server_list))
 
                 payload = {
                     "timestamp": int(time.time() * 1000),

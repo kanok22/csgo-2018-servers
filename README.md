@@ -40,3 +40,15 @@ npx vercel
 4. click **deploy**.
 
 vercel will automatically read `vercel.json` and proxy `/api/steam` directly to valve's server list service without any cors errors.
+
+## updating servers without redeploying
+
+the website dynamically reads its server list from your live github gist:
+👉 **[https://gist.github.com/kanok22/ba7c6e99ef241f958e12306128246e1b](https://gist.github.com/kanok22/ba7c6e99ef241f958e12306128246e1b)**
+
+1. open the gist link above in any browser or on your phone.
+2. click **edit**.
+3. add, remove, or modify any server `ip:port` in the json array.
+4. click **update gist**.
+
+the website at [www.hvhlegacy.info](https://www.hvhlegacy.info) automatically polls and renders the updated list within ~30 seconds. **no code uploads or vercel redeployments required.**
