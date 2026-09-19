@@ -5,6 +5,7 @@ import dgram from 'dgram';
 const GIST_SERVERS_URL = 'https://gist.githubusercontent.com/kanok22/ba7c6e99ef241f958e12306128246e1b/raw/servers.json';
 
 const DEFAULT_SERVERS = [
+  '151.244.72.225:27015',
   '45.95.38.30:27015',
   '109.176.229.7:27015',
   '207.244.199.247:26016',
@@ -52,7 +53,10 @@ async function getLiveServerList() {
     return cachedServerList;
   }
 
-  const sourceUrl = process.env.SERVERS_URL || GIST_SERVERS_URL;
+  const baseSourceUrl = process.env.SERVERS_URL || GIST_SERVERS_URL;
+  const sep = baseSourceUrl.includes('?') ? '&' : '?';
+  const sourceUrl = `${baseSourceUrl}${sep}t=${now}`;
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2500);

@@ -15,8 +15,9 @@
     return _k0.map((b, i) => String.fromCharCode(b ^ _m0[i % _m0.length])).join('');
   }
 
-  // default 13 CS:GO 2018 servers
+  // default CS:GO 2018 servers
   const INITIAL_SERVERS = [
+    { address: '151.244.72.225:27015', name: '[EU] Hydra - MM HvH', map: 'de_overpass', players: 0, maxPlayers: 64, online: true },
     { address: '147.135.70.115:27015', name: 'GameTime - MM HvH [2018 CSGO]', map: 'cs_italy', players: 0, maxPlayers: 40, online: true },
     { address: '15.204.114.175:27015', name: '[NA WEST] Dynasty | 2018 MM HVH', map: 'cs_office_night2', players: 0, maxPlayers: 30, online: true },
     { address: '23.161.168.11:27015', name: 'Dicks 2018 (hello hvh.wtf/gg users)', map: 'de_mirage', players: 0, maxPlayers: 30, online: true },
