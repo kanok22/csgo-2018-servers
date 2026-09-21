@@ -390,13 +390,8 @@
   }
 
   function renderAdvancedPanel(server, telemetry, safeId) {
-    const { pings, jitter, lossRate, statusLevel, statusText, ddosStatus } = telemetry;
+    const { pings, jitter, lossRate, statusLevel, ddosStatus } = telemetry;
     const svgWave = generateWaveSvg(safeId, pings, statusLevel, server.ping, server.online);
-
-    let statusClass = 'status-healthy';
-    if (statusLevel === 'danger') statusClass = 'status-danger';
-    else if (statusLevel === 'warning') statusClass = 'status-warning';
-    else if (statusLevel === 'offline') statusClass = 'status-offline';
 
     let ddosClass = 'text-clean';
     if (statusLevel === 'danger') ddosClass = 'text-danger';
@@ -406,17 +401,6 @@
 
     return `
       <div class="advanced-inner">
-        <div class="advanced-header">
-          <div class="adv-title-box">
-            <span class="adv-chip">diagnostics</span>
-            <span class="adv-title">real-time radar &amp; stability</span>
-          </div>
-          <div class="adv-status-tag ${statusClass}">
-            <span class="pulse-dot"></span>
-            <span>${statusText}</span>
-          </div>
-        </div>
-
         <div class="wave-box">
           <div class="wave-meta">
             <span class="wave-title">latency stability waveform</span>
