@@ -445,7 +445,7 @@
       if (isHealthy) {
         arrowMarkerHtml = `
           <div class="wave-arrow-marker is-stable" style="left: ${xPct}%; top: ${yPct}%;" title="secured &amp; stable">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="19" x2="12" y2="5"></line>
               <polyline points="5 12 12 5 19 12"></polyline>
             </svg>
@@ -454,7 +454,7 @@
       } else {
         arrowMarkerHtml = `
           <div class="wave-arrow-marker is-alert" style="left: ${xPct}%; top: ${yPct}%;" title="${lossRate > 0 ? 'packet drop' : 'jittering / latency spike'}">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <polyline points="19 12 12 19 5 12"></polyline>
             </svg>

@@ -688,50 +688,42 @@ h1 {
 /* arrow at the end of the line (green up or red bottom/down) */
 .wave-arrow-marker {
   position: absolute;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #090909;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transform: translate(-50%, -50%);
+  transform: translate(2px, -50%);
   pointer-events: none;
   z-index: 5;
   transition: top 0.25s ease, left 0.25s ease;
 }
 
 .wave-arrow-marker.is-stable {
-  border: 1.5px solid #22c55e;
-  box-shadow: 0 0 10px rgba(34, 197, 94, 0.45);
-  animation: arrowFloatUp 1.6s ease-in-out infinite;
+  color: #22c55e;
+  filter: drop-shadow(0 0 5px rgba(34, 197, 94, 0.85));
+  animation: arrowFloatUp 1.5s ease-in-out infinite;
 }
 
 .wave-arrow-marker.is-alert {
-  border: 1.5px solid #ef4444;
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.65);
+  color: #ef4444;
+  filter: drop-shadow(0 0 5px rgba(239, 68, 68, 0.9));
   animation: arrowPulseDown 0.8s ease-in-out infinite;
 }
 
 @keyframes arrowFloatUp {
   0%, 100% {
-    transform: translate(-50%, -50%) translateY(0);
-    box-shadow: 0 0 6px rgba(34, 197, 94, 0.35);
+    transform: translate(2px, -50%) translateY(0);
   }
   50% {
-    transform: translate(-50%, -50%) translateY(-2.5px);
-    box-shadow: 0 0 14px rgba(34, 197, 94, 0.85);
+    transform: translate(2px, -50%) translateY(-2.5px);
   }
 }
 
 @keyframes arrowPulseDown {
   0%, 100% {
-    transform: translate(-50%, -50%) translateY(0) scale(1);
-    box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+    transform: translate(2px, -50%) translateY(0) scale(1);
   }
   50% {
-    transform: translate(-50%, -50%) translateY(1.5px) scale(1.12);
-    box-shadow: 0 0 16px rgba(239, 68, 68, 0.9);
+    transform: translate(2px, -50%) translateY(2px) scale(1.15);
   }
 }
 
