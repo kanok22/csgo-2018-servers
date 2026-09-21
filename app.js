@@ -463,18 +463,12 @@
       }
     }
 
-    const pingPillHtml = server.online
-      ? (isHealthy
-          ? `<span class="ping-pill ping-pill-stable">↑ secured</span>`
-          : `<span class="ping-pill ping-pill-alert">↓ ${lossRate > 0 ? 'drop' : 'jitter'}</span>`)
-      : '';
-
     return `
       <div class="advanced-inner">
         <div class="wave-box">
           <div class="wave-meta">
             <span class="wave-title">latency stability waveform</span>
-            <span class="wave-current-ping">${currentPingDisplay} ${pingPillHtml}</span>
+            <span class="wave-current-ping">${currentPingDisplay}</span>
           </div>
           <div class="wave-visual">
             ${svgWave}
