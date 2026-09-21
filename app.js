@@ -57,7 +57,8 @@
   const elToastContainer = document.getElementById('toast-container');
 
   function init() {
-    renderServers();
+    initEventListeners();
+    renderServers(true);
     checkLivePlayers();
     startAutoRefreshLoop();
 
@@ -66,6 +67,43 @@
         resetTimerAndCheck();
       });
     }
+  }
+
+  function initEventListeners() {
+    if (!elServersList) return;
+
+    elServersList.addEventListener('click', (e) => {
+      const btnInspect = e.target.closest('[data-action="toggle-inspect"]');
+      if (btnInspect) {
+        e.stopPropagation();
+        const addr = btnInspect.getAttribute('data-addr');
+        toggleInspect(addr, btnInspect);
+        return;
+      }
+
+      const btnCopyIp = e.target.closest('[data-action="copy-ip"]');
+      if (btnCopyIp) {
+        e.stopPropagation();
+        const addr = btnCopyIp.getAttribute('data-addr');
+        copyToClipboard(addr, `copied ${addr}`, btnCopyIp);
+        return;
+      }
+
+      const btnCopyConnect = e.target.closest('[data-action="copy-connect"]');
+      if (btnCopyConnect) {
+        e.stopPropagation();
+        const addr = btnCopyConnect.getAttribute('data-addr');
+        const cmd = `connect ${addr}`;
+        copyToClipboard(cmd, `copied connect • powered by discord.gg/familyhook`, btnCopyConnect);
+        return;
+      }
+
+      const btnJoin = e.target.closest('[data-action="join"]');
+      if (btnJoin) {
+        showToast(`launching steam connect • powered by discord.gg/familyhook`);
+        return;
+      }
+    });
   }
 
   function resetTimerAndCheck() {
@@ -240,7 +278,7 @@
         if (elPlayersCount) elPlayersCount.textContent = totalPlayers;
         if (elServersCount) elServersCount.textContent = `${onlineCount}/${servers.length}`;
 
-        renderServers();
+        renderServers(false);
       }
     } catch (err) {
       console.warn('player check warning:', err);
@@ -321,26 +359,31 @@
     };
   }
 
-  function generateWaveSvg(safeId, pings, statusLevel, currentPing, isOnline) {
+  function generateWaveSvg(safeId, pings, statusLevel, currentPing, isOnline, isHealthy) {
     const width = 380;
     const height = 50;
 
     if (!isOnline || pings.length === 0) {
-      return `
-        <svg viewBox="0 0 ${width} ${height}" class="wave-svg">
-          <line x1="10" y1="25" x2="${width - 10}" y2="25" stroke="#333333" stroke-width="1.5" stroke-dasharray="4 4" />
-          <text x="${width / 2}" y="29" fill="#666666" font-size="10" font-family="monospace" text-anchor="middle">query timed out / host unreachable</text>
-        </svg>
-      `;
+      return {
+        svg: `
+          <svg viewBox="0 0 ${width} ${height}" class="wave-svg">
+            <line x1="10" y1="25" x2="${width - 10}" y2="25" stroke="#333333" stroke-width="1.5" stroke-dasharray="4 4" />
+            <text x="${width / 2}" y="29" fill="#666666" font-size="10" font-family="monospace" text-anchor="middle">query timed out / host unreachable</text>
+          </svg>
+        `,
+        lastPoint: null,
+        width,
+        height
+      };
     }
 
     const validPings = pings.map(p => Math.max(1, p));
     const minP = Math.max(0, Math.min(...validPings) - 8);
     const maxP = Math.max(minP + 20, Math.max(...validPings) + 10);
 
-    const step = (width - 30) / (validPings.length - 1 || 1);
+    const step = (width - 34) / (validPings.length - 1 || 1);
     const points = validPings.map((val, i) => {
-      const x = 15 + i * step;
+      const x = 14 + i * step;
       const y = 42 - ((val - minP) / (maxP - minP || 1)) * 32;
       return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
     });
@@ -358,25 +401,18 @@
 
     const areaD = `${pathD} L ${lastPoint.x} 48 L ${points[0].x} 48 Z`;
 
-    let strokeColor = '#ffffff';
-    let gradColor = '#ffffff';
-    if (statusLevel === 'danger') {
-      strokeColor = '#ef4444';
-      gradColor = '#ef4444';
-    } else if (statusLevel === 'warning') {
-      strokeColor = '#f59e0b';
-      gradColor = '#f59e0b';
-    }
+    let strokeColor = isHealthy ? '#22c55e' : (statusLevel === 'danger' ? '#ef4444' : '#f59e0b');
+    let gradColor = strokeColor;
 
-    return `
+    const svg = `
       <svg viewBox="0 0 ${width} ${height}" class="wave-svg" preserveAspectRatio="none">
         <defs>
           <linearGradient id="wave-grad-${safeId}" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="${gradColor}" stop-opacity="0.28" />
+            <stop offset="0%" stop-color="${gradColor}" stop-opacity="0.22" />
             <stop offset="100%" stop-color="${gradColor}" stop-opacity="0.0" />
           </linearGradient>
           <filter id="wave-glow-${safeId}" x="-10%" y="-10%" width="120%" height="120%">
-            <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="${strokeColor}" flood-opacity="0.7"/>
+            <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="${strokeColor}" flood-opacity="0.6"/>
           </filter>
         </defs>
         <line x1="10" y1="12" x2="${width - 10}" y2="12" stroke="#161616" stroke-width="1" stroke-dasharray="2 3" />
@@ -384,14 +420,16 @@
         <line x1="10" y1="44" x2="${width - 10}" y2="44" stroke="#161616" stroke-width="1" stroke-dasharray="2 3" />
         <path d="${areaD}" fill="url(#wave-grad-${safeId})" />
         <path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#wave-glow-${safeId})" class="wave-stroke" />
-        <circle cx="${lastPoint.x}" cy="${lastPoint.y}" r="3.5" fill="${strokeColor}" class="wave-live-dot" />
       </svg>
     `;
+
+    return { svg, lastPoint, width, height };
   }
 
   function renderAdvancedPanel(server, telemetry, safeId) {
     const { pings, jitter, lossRate, statusLevel, ddosStatus } = telemetry;
-    const svgWave = generateWaveSvg(safeId, pings, statusLevel, server.ping, server.online);
+    const isHealthy = server.online && lossRate === 0 && jitter < 25 && (server.ping || 0) < 160;
+    const { svg: svgWave, lastPoint, width, height } = generateWaveSvg(safeId, pings, statusLevel, server.ping, server.online, isHealthy);
 
     let ddosClass = 'text-clean';
     if (statusLevel === 'danger') ddosClass = 'text-danger';
@@ -399,15 +437,48 @@
 
     const currentPingDisplay = server.online ? `${server.ping || 0} ms` : 'timeout';
 
+    let arrowMarkerHtml = '';
+    if (lastPoint && server.online) {
+      const xPct = ((lastPoint.x) / width) * 100;
+      const yPct = ((lastPoint.y) / height) * 100;
+
+      if (isHealthy) {
+        arrowMarkerHtml = `
+          <div class="wave-arrow-marker is-stable" style="left: ${xPct}%; top: ${yPct}%;" title="secured &amp; stable">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"></line>
+              <polyline points="5 12 12 5 19 12"></polyline>
+            </svg>
+          </div>
+        `;
+      } else {
+        arrowMarkerHtml = `
+          <div class="wave-arrow-marker is-alert" style="left: ${xPct}%; top: ${yPct}%;" title="${lossRate > 0 ? 'packet drop' : 'jittering / latency spike'}">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <polyline points="19 12 12 19 5 12"></polyline>
+            </svg>
+          </div>
+        `;
+      }
+    }
+
+    const pingPillHtml = server.online
+      ? (isHealthy
+          ? `<span class="ping-pill ping-pill-stable">↑ secured</span>`
+          : `<span class="ping-pill ping-pill-alert">↓ ${lossRate > 0 ? 'drop' : 'jitter'}</span>`)
+      : '';
+
     return `
       <div class="advanced-inner">
         <div class="wave-box">
           <div class="wave-meta">
             <span class="wave-title">latency stability waveform</span>
-            <span class="wave-current-ping">${currentPingDisplay}</span>
+            <span class="wave-current-ping">${currentPingDisplay} ${pingPillHtml}</span>
           </div>
           <div class="wave-visual">
             ${svgWave}
+            ${arrowMarkerHtml}
           </div>
           <div class="wave-axis">
             <span>&larr; past probe history</span>
@@ -437,120 +508,205 @@
     `;
   }
 
-  function renderServers() {
-    const html = servers.map((server, idx) => {
-      const rawAddr = String(server.address || '').trim();
-      if (!ADDR_REGEX.test(rawAddr)) {
-        return '';
-      }
-      const safeAddr = escapeHtml(rawAddr);
-      const safeId = safeAddr.replace(/[^a-zA-Z0-9]/g, '_');
-      const safeName = escapeHtml(server.name || 'cs:go server');
-      const safeMap = escapeHtml(server.map || 'unknown');
-      const numStr = String(idx + 1).padStart(2, '0');
+  function renderCardHtml(server, idx) {
+    const rawAddr = String(server.address || '').trim();
+    if (!ADDR_REGEX.test(rawAddr)) {
+      return '';
+    }
+    const safeAddr = escapeHtml(rawAddr);
+    const safeId = safeAddr.replace(/[^a-zA-Z0-9]/g, '_');
+    const safeName = escapeHtml(server.name || 'cs:go server');
+    const safeMap = escapeHtml(server.map || 'unknown');
+    const numStr = String(idx + 1).padStart(2, '0');
 
-      const isExpanded = expandedServers.has(safeAddr);
-      const telemetry = getServerTelemetry(safeAddr, server.ping, server.online);
+    const isExpanded = expandedServers.has(safeAddr);
+    const telemetry = getServerTelemetry(safeAddr, server.ping, server.online);
 
-      let playerBadge = '';
-      let isFeatured = false;
+    let playerBadge = '';
+    let isFeatured = false;
 
-      if (!server.online) {
-        playerBadge = `<span class="badge-offline">offline</span>`;
-      } else if (server.players > 0) {
-        isFeatured = true;
-        playerBadge = `<span class="badge-active">${server.players}/${server.maxPlayers} players</span>`;
-      } else {
-        playerBadge = `<span class="badge-zero">0/${server.maxPlayers} players</span>`;
-      }
+    if (!server.online) {
+      playerBadge = `<span class="badge-offline">offline</span>`;
+    } else if (server.players > 0) {
+      isFeatured = true;
+      playerBadge = `<span class="badge-active">${server.players}/${server.maxPlayers} players</span>`;
+    } else {
+      playerBadge = `<span class="badge-zero">0/${server.maxPlayers} players</span>`;
+    }
 
-      const pingBadge = server.ping ? `<span class="meta-tag">${server.ping} ms</span>` : '';
-      const mapBadge = `<span class="meta-tag">${safeMap}</span>`;
+    const pingBadge = server.ping ? `<span class="meta-tag meta-tag-ping">${server.ping} ms</span>` : '<span class="meta-tag meta-tag-ping"></span>';
+    const mapBadge = `<span class="meta-tag meta-tag-map">${safeMap}</span>`;
 
-      return `
-        <div class="server-card ${isFeatured ? 'is-featured' : ''} ${!server.online ? 'is-offline' : ''} ${isExpanded ? 'has-advanced-open' : ''}" style="animation-delay: ${idx * 20}ms">
-          <div class="server-top">
-            <div class="server-title-group">
-              <div class="server-name-line">
-                <span class="server-index">[${numStr}]</span>
-                <span class="server-name" title="${safeName}">${safeName}</span>
-              </div>
-              <div class="server-meta-tags">
-                ${playerBadge}
-                ${mapBadge}
-                ${pingBadge}
-              </div>
+    return `
+      <div class="server-card ${isFeatured ? 'is-featured' : ''} ${!server.online ? 'is-offline' : ''} ${isExpanded ? 'has-advanced-open' : ''}" data-addr="${safeAddr}" style="animation-delay: ${idx * 20}ms">
+        <div class="server-top">
+          <div class="server-title-group">
+            <div class="server-name-line">
+              <span class="server-index">[${numStr}]</span>
+              <span class="server-name" title="${safeName}">${safeName}</span>
             </div>
-          </div>
-          <div class="server-bottom">
-            <div class="server-address-box">
-              <span class="addr-label">address:</span>
-              <span class="addr-value">${safeAddr}</span>
+            <div class="server-meta-tags">
+              <span class="server-badge-wrap">${playerBadge}</span>
+              ${mapBadge}
+              ${pingBadge}
             </div>
-            <div class="server-actions">
-              <button class="btn-copy" data-action="copy-ip" data-addr="${safeAddr}" title="copy ip">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-                <span>copy ip</span>
-              </button>
-              <button class="btn-copy" data-action="copy-connect" data-addr="${safeAddr}" title="copy console connect command">
-                <span>copy connect</span>
-              </button>
-              <a href="steam://connect/${safeAddr}" class="btn-connect" data-action="join" data-addr="${safeAddr}" title="join server (powered by discord.gg/familyhook)">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
-                <span>join</span>
-              </a>
-              <button class="btn-inspect ${isExpanded ? 'is-open' : ''}" data-action="toggle-inspect" data-addr="${safeAddr}" title="${isExpanded ? 'hide diagnostics' : 'network telemetry & ddos radar'}">
-                <span>?</span>
-              </button>
-            </div>
-          </div>
-          <div class="server-advanced ${isExpanded ? 'is-open' : ''}" id="adv-${safeId}">
-            ${isExpanded ? renderAdvancedPanel(server, telemetry, safeId) : ''}
           </div>
         </div>
-      `;
-    }).join('');
+        <div class="server-bottom">
+          <div class="server-address-box">
+            <span class="addr-label">address:</span>
+            <span class="addr-value">${safeAddr}</span>
+          </div>
+          <div class="server-actions">
+            <button class="btn-copy" data-action="copy-ip" data-addr="${safeAddr}" title="copy ip">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>copy ip</span>
+            </button>
+            <button class="btn-copy" data-action="copy-connect" data-addr="${safeAddr}" title="copy console connect command">
+              <span>copy connect</span>
+            </button>
+            <a href="steam://connect/${safeAddr}" class="btn-connect" data-action="join" data-addr="${safeAddr}" title="join server (powered by discord.gg/familyhook)">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <span>join</span>
+            </a>
+            <button class="btn-inspect ${isExpanded ? 'is-open' : ''}" data-action="toggle-inspect" data-addr="${safeAddr}" title="${isExpanded ? 'hide diagnostics' : 'network telemetry & ddos radar'}">
+              <span>?</span>
+            </button>
+          </div>
+        </div>
+        <div class="server-advanced ${isExpanded ? 'is-open' : ''}" id="adv-${safeId}">
+          ${isExpanded ? renderAdvancedPanel(server, telemetry, safeId) : ''}
+        </div>
+      </div>
+    `;
+  }
 
-    elServersList.innerHTML = html;
+  function toggleInspect(addr, btn) {
+    const card = btn.closest('.server-card');
+    if (!card) return;
 
-    // bind copy & join actions
-    elServersList.querySelectorAll('[data-action="copy-ip"]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const addr = btn.getAttribute('data-addr');
-        copyToClipboard(addr, `copied ${addr}`, btn);
-      });
-    });
+    const drawer = card.querySelector('.server-advanced');
+    if (!drawer) return;
 
-    elServersList.querySelectorAll('[data-action="copy-connect"]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const addr = btn.getAttribute('data-addr');
-        const cmd = `connect ${addr}`;
-        copyToClipboard(cmd, `copied connect • powered by discord.gg/familyhook`, btn);
-      });
-    });
-
-    elServersList.querySelectorAll('[data-action="join"]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        showToast(`launching steam connect • powered by discord.gg/familyhook`);
-      });
-    });
-
-    elServersList.querySelectorAll('[data-action="toggle-inspect"]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const addr = btn.getAttribute('data-addr');
-        if (expandedServers.has(addr)) {
-          expandedServers.delete(addr);
-        } else {
-          expandedServers.add(addr);
+    const isExpanded = expandedServers.has(addr);
+    if (isExpanded) {
+      expandedServers.delete(addr);
+      btn.classList.remove('is-open');
+      btn.setAttribute('title', 'network telemetry & ddos radar');
+      drawer.classList.remove('is-open');
+      card.classList.remove('has-advanced-open');
+      setTimeout(() => {
+        if (!expandedServers.has(addr)) {
+          drawer.innerHTML = '';
         }
-        renderServers();
+      }, 350);
+    } else {
+      expandedServers.add(addr);
+      btn.classList.add('is-open');
+      btn.setAttribute('title', 'hide diagnostics');
+
+      const safeId = addr.replace(/[^a-zA-Z0-9]/g, '_');
+      const server = servers.find(s => s.address === addr) || { address: addr, ping: 0, online: false };
+      const telemetry = getServerTelemetry(addr, server.ping, server.online);
+
+      drawer.innerHTML = renderAdvancedPanel(server, telemetry, safeId);
+      card.classList.add('has-advanced-open');
+      requestAnimationFrame(() => {
+        drawer.classList.add('is-open');
       });
+    }
+  }
+
+  function renderServers(fullRebuild = false) {
+    const existingCards = elServersList.querySelectorAll('.server-card');
+
+    if (fullRebuild || existingCards.length === 0) {
+      const html = servers.map((server, idx) => renderCardHtml(server, idx)).join('');
+      elServersList.innerHTML = html;
+      return;
+    }
+
+    const cardMap = new Map();
+    existingCards.forEach(card => {
+      const addr = card.getAttribute('data-addr');
+      if (addr) cardMap.set(addr, card);
+    });
+
+    const currentAddresses = servers.map(s => s.address);
+    const hasStructureMismatch = currentAddresses.some(addr => !cardMap.has(addr)) || (currentAddresses.length !== existingCards.length);
+
+    if (hasStructureMismatch) {
+      const html = servers.map((server, idx) => renderCardHtml(server, idx)).join('');
+      elServersList.innerHTML = html;
+      return;
+    }
+
+    // Reorder existing cards in the DOM if sorting changed
+    currentAddresses.forEach(addr => {
+      const card = cardMap.get(addr);
+      if (card) {
+        elServersList.appendChild(card);
+      }
+    });
+
+    // Update in-place without rebuilding
+    servers.forEach((server, idx) => {
+      const card = cardMap.get(server.address);
+      if (!card) return;
+
+      const safeAddr = escapeHtml(server.address);
+      const safeId = safeAddr.replace(/[^a-zA-Z0-9]/g, '_');
+      const numStr = String(idx + 1).padStart(2, '0');
+
+      const elIndex = card.querySelector('.server-index');
+      if (elIndex && elIndex.textContent !== `[${numStr}]`) {
+        elIndex.textContent = `[${numStr}]`;
+      }
+
+      const elMapTag = card.querySelector('.meta-tag-map');
+      if (elMapTag && server.map && elMapTag.textContent !== server.map) {
+        elMapTag.textContent = server.map;
+      }
+
+      const elPingTag = card.querySelector('.meta-tag-ping');
+      if (elPingTag) {
+        const text = server.ping ? `${server.ping} ms` : '';
+        if (elPingTag.textContent !== text) {
+          elPingTag.textContent = text;
+        }
+      }
+
+      const elBadgeWrap = card.querySelector('.server-badge-wrap');
+      if (elBadgeWrap) {
+        let badgeHtml = '';
+        if (!server.online) {
+          badgeHtml = `<span class="badge-offline">offline</span>`;
+        } else if (server.players > 0) {
+          badgeHtml = `<span class="badge-active">${server.players}/${server.maxPlayers} players</span>`;
+        } else {
+          badgeHtml = `<span class="badge-zero">0/${server.maxPlayers} players</span>`;
+        }
+        if (elBadgeWrap.innerHTML !== badgeHtml) {
+          elBadgeWrap.innerHTML = badgeHtml;
+        }
+      }
+
+      const isFeatured = server.online && server.players > 0;
+      card.classList.toggle('is-featured', isFeatured);
+      card.classList.toggle('is-offline', !server.online);
+
+      // If drawer is currently open, smoothly update wave & stats
+      const isExpanded = expandedServers.has(server.address);
+      const drawer = card.querySelector('.server-advanced');
+      if (drawer && isExpanded) {
+        const telemetry = getServerTelemetry(server.address, server.ping, server.online);
+        drawer.innerHTML = renderAdvancedPanel(server, telemetry, safeId);
+      }
     });
   }
 
