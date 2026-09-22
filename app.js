@@ -54,6 +54,7 @@
   const elRefreshBtn = document.getElementById('refresh-btn');
   const elRefreshIcon = document.getElementById('refresh-icon');
   const elRefreshProgressBar = document.getElementById('refresh-progress-bar');
+  const elDumpBtn = document.getElementById('dump-btn');
   const elToastContainer = document.getElementById('toast-container');
 
   function init() {
@@ -65,6 +66,12 @@
     if (elRefreshBtn) {
       elRefreshBtn.addEventListener('click', () => {
         resetTimerAndCheck();
+      });
+    }
+
+    if (elDumpBtn) {
+      elDumpBtn.addEventListener('click', () => {
+        downloadPlayersDump(null, elDumpBtn);
       });
     }
   }
@@ -101,6 +108,14 @@
       const btnJoin = e.target.closest('[data-action="join"]');
       if (btnJoin) {
         showToast(`launching steam connect • powered by discord.gg/familyhook`);
+        return;
+      }
+
+      const btnDumpServer = e.target.closest('[data-action="dump-server"]');
+      if (btnDumpServer) {
+        e.stopPropagation();
+        const addr = btnDumpServer.getAttribute('data-addr');
+        downloadPlayersDump(addr, btnDumpServer);
         return;
       }
     });
@@ -206,6 +221,46 @@
         buttonElement.classList.remove('copied');
         buttonElement.innerHTML = originalText;
       }, 1400);
+    }
+  }
+
+  async function downloadPlayersDump(targetAddr = null, triggerBtn = null) {
+    if (triggerBtn && triggerBtn.classList.contains('loading')) return;
+
+    if (triggerBtn) triggerBtn.classList.add('loading');
+    showToast(targetAddr ? `dumping players...` : 'generating players dump (name - steamid)...');
+
+    try {
+      const url = targetAddr ? `/api/dump?addr=${encodeURIComponent(targetAddr)}` : '/api/dump';
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const blob = await res.blob();
+      let filename = targetAddr
+        ? `hvhlegacy_${targetAddr.replace(/[^a-zA-Z0-9]/g, '_')}_players.txt`
+        : `hvhlegacy_connected_players.txt`;
+
+      const disposition = res.headers.get('content-disposition');
+      if (disposition) {
+        const match = disposition.match(/filename="?([^";]+)"?/i);
+        if (match && match[1]) filename = match[1];
+      }
+
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
+
+      showToast('players dump downloaded!');
+    } catch (err) {
+      const url = targetAddr ? `/api/dump?addr=${encodeURIComponent(targetAddr)}` : '/api/dump';
+      window.location.href = url;
+    } finally {
+      if (triggerBtn) triggerBtn.classList.remove('loading');
     }
   }
 
@@ -568,6 +623,14 @@
               </svg>
               <span>join</span>
             </a>
+            <button class="btn-copy btn-dump-card" data-action="dump-server" data-addr="${safeAddr}" title="dump connected players to txt (name - steamid)">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>dump</span>
+            </button>
             <button class="btn-inspect ${isExpanded ? 'is-open' : ''}" data-action="toggle-inspect" data-addr="${safeAddr}" title="${isExpanded ? 'hide diagnostics' : 'network telemetry & ddos radar'}">
               <span>?</span>
             </button>

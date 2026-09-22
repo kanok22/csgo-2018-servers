@@ -211,6 +211,42 @@ h1 {
   animation: spin 0.7s linear infinite;
 }
 
+/* dump players button in header */
+.btn-dump {
+  background: #0d0d0d;
+  color: var(--text-primary);
+  border: 1px solid #222222;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: var(--transition);
+  user-select: none;
+}
+
+.btn-dump:hover {
+  border-color: #ffffff;
+  background: #171717;
+  transform: translateY(-1px);
+}
+
+.btn-dump:active {
+  transform: translateY(0);
+}
+
+.btn-dump.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.btn-dump.loading svg {
+  animation: spin 0.7s linear infinite;
+}
+
 /* official discord button in header */
 .btn-discord {
   background: #0d0d0d;
@@ -494,6 +530,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 /* copy buttons */
