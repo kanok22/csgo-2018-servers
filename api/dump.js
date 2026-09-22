@@ -332,57 +332,56 @@ export default async function handler(req, res) {
       });
     }
 
-    // Generate formatted TXT file
+    // Generate minimal formatted TXT file
     const nowIso = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
     const lines = [];
 
-    lines.push('================================================================================');
-    lines.push('           HVH LEGACY • CS:GO 2018 CONNECTED STEAM PLAYERS DUMP');
-    lines.push('================================================================================');
-    lines.push(`Generated: ${nowIso}`);
-    lines.push('Website:   https://www.hvhlegacy.info');
-    lines.push('Discord:   discord.gg/familyhook');
-    lines.push(`Servers Scanned: ${targets.length}`);
-    lines.push(`Total Connected Players: ${allPlayersFlat.length}`);
-    lines.push('================================================================================\n');
+    lines.push(`generated: ${nowIso}`);
+    lines.push('discord:   discord.gg/familyhook\n');
 
-    // Section 1: Organized by Server
-    lines.push('--- [PLAYERS BY SERVER] --------------------------------------------------------');
-    serverResults.forEach(s => {
-      if (s.online && s.players && s.players.length > 0) {
-        lines.push(`\n[SERVER] ${s.name} (${s.address})`);
-        lines.push(`Map: ${s.map} | Connected: ${s.players.length}`);
-        lines.push('--------------------------------------------------------------------------------');
+    if (targetAddr) {
+      // Single server dump
+      const targetServer = serverResults[0];
+      if (targetServer && targetServer.online && Array.isArray(targetServer.players) && targetServer.players.length > 0) {
+        targetServer.players.forEach(p => {
+          lines.push(`${p.name} - ${p.steamid}`);
+        });
+      } else {
+        lines.push('[no players online]');
+      }
+    } else {
+      // All servers dump
+      const onlineWithPlayers = serverResults.filter(s => s.online && Array.isArray(s.players) && s.players.length > 0);
+
+      if (onlineWithPlayers.length === 0) {
+        lines.push('[no players online]');
+      } else if (onlineWithPlayers.length === 1) {
+        const s = onlineWithPlayers[0];
+        lines.push(`[${s.name}]`);
         s.players.forEach(p => {
-          lines.push(`${p.name} - ${p.steamid} (score: ${p.score}, duration: ${formatDuration(p.durationSeconds)})`);
+          lines.push(`${p.name} - ${p.steamid}`);
+        });
+      } else {
+        onlineWithPlayers.forEach(s => {
+          lines.push(`[${s.name}]`);
+          s.players.forEach(p => {
+            lines.push(`${p.name} - ${p.steamid}`);
+          });
+          lines.push('');
+        });
+
+        lines.push('[all players]');
+        const sortedFlat = [...allPlayersFlat].sort((a, b) => a.name.localeCompare(b.name));
+        sortedFlat.forEach(p => {
+          lines.push(`${p.name} - ${p.steamid}`);
         });
       }
-    });
-
-    if (allPlayersFlat.length === 0) {
-      lines.push('\n[!] No active players currently connected on scanned servers.');
     }
 
-    // Section 2: Clean A-Z organized list: Name - SteamID
-    lines.push('\n================================================================================');
-    lines.push('                   ALL CONNECTED PLAYERS (NAME - STEAMID)');
-    lines.push('================================================================================');
-
-    const sortedFlat = [...allPlayersFlat].sort((a, b) => a.name.localeCompare(b.name));
-    sortedFlat.forEach(p => {
-      lines.push(`${p.name} - ${p.steamid}`);
-    });
-
-    if (sortedFlat.length === 0) {
-      lines.push('[none]');
-    }
-
-    lines.push('================================================================================\n');
-
-    const txtOutput = lines.join('\n');
+    const txtOutput = lines.join('\n') + '\n';
     const filename = targetAddr
-      ? `hvhlegacy_server_${targetAddr.replace(/[^a-zA-Z0-9]/g, '_')}_players.txt`
-      : `hvhlegacy_all_players_${Date.now()}.txt`;
+      ? `players_${targetAddr.replace(/[^a-zA-Z0-9]/g, '_')}.txt`
+      : `players_dump_${Date.now()}.txt`;
 
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

@@ -237,8 +237,8 @@
 
       const blob = await res.blob();
       let filename = targetAddr
-        ? `hvhlegacy_${targetAddr.replace(/[^a-zA-Z0-9]/g, '_')}_players.txt`
-        : `hvhlegacy_connected_players.txt`;
+        ? `players_${targetAddr.replace(/[^a-zA-Z0-9]/g, '_')}.txt`
+        : `players_dump_${Date.now()}.txt`;
 
       const disposition = res.headers.get('content-disposition');
       if (disposition) {
