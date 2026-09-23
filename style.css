@@ -287,10 +287,12 @@ h1 {
 
 .refresh-progress-bar {
   height: 100%;
-  width: 0%;
+  width: 100%;
+  transform-origin: left;
+  transform: scaleX(0);
   background: var(--text-primary);
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
-  transition: width 0.1s linear;
+  will-change: transform;
 }
 
 /* server owners notice box */
@@ -381,6 +383,8 @@ h1 {
   transition: var(--transition);
   animation: cardReveal 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   position: relative;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 95px;
 }
 
 .server-card:hover {

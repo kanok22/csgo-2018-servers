@@ -123,29 +123,53 @@
 
   function resetTimerAndCheck() {
     cycleStartTime = Date.now();
+    if (elRefreshProgressBar) {
+      elRefreshProgressBar.style.transform = 'scaleX(0)';
+    }
     checkLivePlayers();
   }
 
   function startAutoRefreshLoop() {
     function tick() {
-      if (!isChecking) {
+      if (!isChecking && !document.hidden) {
         const elapsed = Date.now() - cycleStartTime;
-        const progress = Math.min((elapsed / REFRESH_INTERVAL_MS) * 100, 100);
+        const progressRatio = Math.min(elapsed / REFRESH_INTERVAL_MS, 1);
         if (elRefreshProgressBar) {
-          elRefreshProgressBar.style.width = `${progress}%`;
+          elRefreshProgressBar.style.transform = `scaleX(${progressRatio})`;
         }
 
         if (elapsed >= REFRESH_INTERVAL_MS) {
           cycleStartTime = Date.now();
           if (elRefreshProgressBar) {
-            elRefreshProgressBar.style.width = '0%';
+            elRefreshProgressBar.style.transform = 'scaleX(0)';
           }
           checkLivePlayers();
         }
       }
-      progressAnimationId = requestAnimationFrame(tick);
+      if (!document.hidden) {
+        progressAnimationId = requestAnimationFrame(tick);
+      }
     }
+
     progressAnimationId = requestAnimationFrame(tick);
+
+    // Page Visibility API optimization: pause timers when tab is hidden, resume on focus
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (progressAnimationId) {
+          cancelAnimationFrame(progressAnimationId);
+          progressAnimationId = null;
+        }
+      } else {
+        const elapsed = Date.now() - cycleStartTime;
+        if (elapsed >= REFRESH_INTERVAL_MS) {
+          resetTimerAndCheck();
+        }
+        if (!progressAnimationId) {
+          progressAnimationId = requestAnimationFrame(tick);
+        }
+      }
+    });
   }
 
   function setCheckingState(checking) {
@@ -269,10 +293,15 @@
     isChecking = true;
     setCheckingState(true);
 
+    const controller = new AbortController();
+    const abortTimeout = setTimeout(() => controller.abort(), 6000);
+
     try {
       const res = await fetch('/api/servers', {
-        headers: { 'Accept': 'application/json' }
+        headers: { 'Accept': 'application/json' },
+        signal: controller.signal
       });
+      clearTimeout(abortTimeout);
 
       if (!res.ok) {
         throw new Error(`server returned status ${res.status}`);

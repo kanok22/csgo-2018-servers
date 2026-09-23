@@ -25,6 +25,10 @@ let cachedServerList = DEFAULT_SERVERS;
 let lastFetchTimestamp = 0;
 const CACHE_TTL_MS = 25000; // re-fetch remote list at most every 25 seconds
 
+let cachedResults = null;
+let lastResultTimestamp = 0;
+const RESULT_CACHE_TTL_MS = 3500; // in-memory 3.5s response cache
+
 const IP_PORT_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):([0-9]{1,5})$/;
 
 function isSafePublicServer(addr) {
@@ -97,7 +101,7 @@ async function getLiveServerList() {
   return cachedServerList || DEFAULT_SERVERS.map(addr => ({ address: addr, customName: null }));
 }
 
-function queryServer(target, timeout = 1200) {
+function queryServer(target, timeout = 850) {
   const addr = typeof target === 'string' ? target : target.address;
   const customName = (typeof target === 'object' && target.customName) ? target.customName : null;
 
@@ -227,7 +231,7 @@ function queryServer(target, timeout = 1200) {
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Cache-Control', 'public, max-age=5, s-maxage=5, stale-while-revalidate=10');
+  res.setHeader('Cache-Control', 'public, max-age=3, s-maxage=4, stale-while-revalidate=8');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
 
@@ -235,14 +239,24 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  const now = Date.now();
+  if (cachedResults && (now - lastResultTimestamp < RESULT_CACHE_TTL_MS)) {
+    return res.status(200).json(cachedResults);
+  }
+
   try {
     const serverList = await getLiveServerList();
     const results = await Promise.all(serverList.map((target) => queryServer(target)));
-    return res.status(200).json({
-      timestamp: Date.now(),
+    cachedResults = {
+      timestamp: now,
       servers: results
-    });
+    };
+    lastResultTimestamp = now;
+    return res.status(200).json(cachedResults);
   } catch (error) {
+    if (cachedResults) {
+      return res.status(200).json(cachedResults);
+    }
     return res.status(500).json({ error: 'failed to query servers' });
   }
 }

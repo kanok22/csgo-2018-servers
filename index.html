@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="description" content="live 2018 cs:go hvh servers monitor and player counts • powered by discord.gg/familyhook">
   <title>2018 • powered by discord.gg/familyhook</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="preload" href="style.css" as="style">
+  <link rel="preload" href="app.js" as="script">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -23,6 +24,8 @@
               class="game-icon"
               width="40"
               height="40"
+              decoding="async"
+              fetchpriority="high"
             >
           </a>
           <div class="title-text-group">
@@ -104,6 +107,6 @@
   <!-- toast container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="app.js"></script>
+  <script src="app.js" defer></script>
 </body>
 </html>

@@ -77,7 +77,7 @@ async function getLiveServerList() {
   return DEFAULT_SERVERS.map(addr => ({ address: addr, customName: null }));
 }
 
-function queryServerPlayers(target, timeout = 1400) {
+function queryServerPlayers(target, timeout = 950) {
   const addr = typeof target === 'string' ? target : target.address;
   const customName = (typeof target === 'object' && target.customName) ? target.customName : null;
 
@@ -236,6 +236,11 @@ function steam64ToSteam2(steam64) {
   }
 }
 
+const steamIdCache = new Map();
+let cachedGlobalDump = null;
+let cachedGlobalDumpTime = 0;
+const DUMP_CACHE_TTL_MS = 4000;
+
 async function resolveSteamId(playerName) {
   // If player name looks like a 17-digit Steam64
   if (/^7656119[0-9]{10}$/.test(playerName)) {
@@ -253,9 +258,14 @@ async function resolveSteamId(playerName) {
     return '[hidden by server]';
   }
 
+  if (steamIdCache.has(clean)) {
+    return steamIdCache.get(clean);
+  }
+
+  let result = '[hidden by server]';
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1200);
+    const timeout = setTimeout(() => controller.abort(), 950);
     const url = `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key=${STEAM_KEY}&vanityurl=${encodeURIComponent(clean)}`;
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
@@ -265,12 +275,13 @@ async function resolveSteamId(playerName) {
       if (data.response && data.response.success === 1 && data.response.steamid) {
         const s64 = data.response.steamid;
         const s2 = steam64ToSteam2(s64);
-        return `${s64}${s2 ? ` [${s2}]` : ''}`;
+        result = `${s64}${s2 ? ` [${s2}]` : ''}`;
       }
     }
   } catch (e) {}
 
-  return '[hidden by server]';
+  steamIdCache.set(clean, result);
+  return result;
 }
 
 function formatDuration(sec) {
@@ -290,9 +301,17 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  const targetAddr = req.query.addr ? String(req.query.addr).trim() : null;
+
+  // Serve fast from cache if global dump was requested recently
+  if (!targetAddr && req.query.format !== 'json' && cachedGlobalDump && (Date.now() - cachedGlobalDumpTime < DUMP_CACHE_TTL_MS)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="players_dump_${cachedGlobalDumpTime}.txt"`);
+    return res.status(200).send(cachedGlobalDump);
+  }
+
   try {
     const serverList = await getLiveServerList();
-    const targetAddr = req.query.addr ? String(req.query.addr).trim() : null;
 
     let targets = serverList;
     if (targetAddr) {
@@ -302,25 +321,32 @@ export default async function handler(req, res) {
 
     const serverResults = await Promise.all(targets.map(t => queryServerPlayers(t)));
 
-    // Collect and resolve players
+    // Collect and resolve players concurrently
     const allPlayersFlat = [];
+    const resolveTasks = [];
 
     for (const s of serverResults) {
       if (s.online && Array.isArray(s.players)) {
         for (const p of s.players) {
-          const steamid = await resolveSteamId(p.name);
-          p.steamid = steamid;
-          allPlayersFlat.push({
-            name: p.name,
-            steamid,
-            score: p.score,
-            duration: formatDuration(p.durationSeconds),
-            serverName: s.name,
-            serverAddress: s.address,
-            serverMap: s.map
-          });
+          resolveTasks.push((async () => {
+            const steamid = await resolveSteamId(p.name);
+            p.steamid = steamid;
+            allPlayersFlat.push({
+              name: p.name,
+              steamid,
+              score: p.score,
+              duration: formatDuration(p.durationSeconds),
+              serverName: s.name,
+              serverAddress: s.address,
+              serverMap: s.map
+            });
+          })());
         }
       }
+    }
+
+    if (resolveTasks.length > 0) {
+      await Promise.all(resolveTasks);
     }
 
     if (req.query.format === 'json') {
@@ -382,6 +408,11 @@ export default async function handler(req, res) {
     const filename = targetAddr
       ? `players_${targetAddr.replace(/[^a-zA-Z0-9]/g, '_')}.txt`
       : `players_dump_${Date.now()}.txt`;
+
+    if (!targetAddr && req.query.format !== 'json') {
+      cachedGlobalDump = txtOutput;
+      cachedGlobalDumpTime = Date.now();
+    }
 
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
