@@ -6,6 +6,7 @@ const GIST_SERVERS_URL = 'https://gist.githubusercontent.com/kanok22/ba7c6e99ef2
 
 const DEFAULT_SERVERS = [
   '151.244.72.225:27015',
+  '51.89.25.102:27015',
   '45.95.38.30:27015',
   '109.176.229.7:27015',
   '207.244.199.247:26016',
